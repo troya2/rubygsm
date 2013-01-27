@@ -25,7 +25,7 @@ module Gsm
 				26  => "Dial string too long",
 				27  => "Invalid characters in dial string",
 				30  => "No network service",
-				32  => "Network not allowed – emergency calls only",
+				32  => "Network not allowed, emergency calls only",
 				40  => "Network personal PIN required (Network lock)",
 				103 => "Illegal MS (#3)",
 				106 => "Illegal ME (#6)",

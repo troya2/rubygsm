@@ -1,11 +1,11 @@
 Gem::Specification.new do |s|
 	s.name     = "rubygsm"
-	s.version  = "0.41"
-	s.date     = "2009-03-05"
+	s.version  = "0.54"
+	s.date     = "2013-01-27"
 	s.summary  = "Send and receive SMS with a GSM modem"
-	s.email    = "adam.mckaig@gmail.com"
-	s.homepage = "http://github.com/adammck/rubygsm"
-	s.authors  = ["Adam Mckaig"]
+	s.email    = "troy@elbowroomstudios.com"
+	s.homepage = "http://github.com/troya2/rubygsm"
+	s.authors  = ["Adam Mckaig", "khwang1", "Troy Anderson"]
 	s.has_rdoc = true
 	
 	s.files = [
@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
 		"lib/rubygsm/msg/incoming.rb",
 		"lib/rubygsm/msg/outgoing.rb",
 		"bin/gsm-modem-band",
-		"bin/gsm-app-monitor"
+		"bin/sms"
 	]
 	
 	s.executables = [
@@ -26,5 +26,5 @@ Gem::Specification.new do |s|
 		"sms"
 	]
 	
-	s.add_dependency("toholio-serialport", ["> 0.7.1"])
+	s.add_dependency("serialport", ["> 0.7.1"])
 end

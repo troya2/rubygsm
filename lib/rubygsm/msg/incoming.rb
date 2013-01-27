@@ -3,16 +3,18 @@
 
 module Gsm
 	class Incoming
-		attr_reader :device, :sender, :sent, :received, :text
+		attr_reader :device, :sender, :time_sent, :received, :text
 		
-		def initialize(device, sender, sent, text)
+		#example usage: msg = Gsm::Incoming.new(self, from, sent, msg_text)
+		
+		def initialize(device, sender, time_sent, text)
 			
 			# move all arguments into read-only
 			# attributes. ugly, but Struct only
 			# supports read/write attrs
 			@device = device
 			@sender = sender
-			@sent = sent
+			@time_sent = time_sent
 			@text = text
 			
 			# assume that the message was

@@ -14,8 +14,14 @@ require "date.rb"
 require "rubygems"
 require "serialport"
 
+# declare constants
+# ASCII values
+CR = 13 #Carriage return
+LF = 10 #Line feed
+Null = 0 #null
+
 module Gsm
-class Modem
+  class Modem
 	include Timeout
 	
 	
@@ -37,26 +43,55 @@ class Modem
 		# we'll try: ttyS0, ttyUSB0, ttyACM0, ttyS1...
 		if port == :auto
 			@device, @port = catch(:found) do
-				0.upto(8) do |n|
-					["ttyS", "ttyUSB", "ttyACM"].each do |prefix|
-						try_port = "/dev/#{prefix}#{n}"
-			
-						begin
-							# serialport args: port, baud, data bits, stop bits, parity
-							device = SerialPort.new(try_port, baud, 8, 1, SerialPort::NONE)
-							throw :found, [device, try_port]
-						
-						rescue ArgumentError, Errno::ENOENT
-							# do nothing, just continue to
-							# try the next port in order
-						end
+
+
+    		#[khw] on Linux only search through ttyUSB8 to ttyUSB0
+			8.downto(0) do |n|
+            	["ttyUSB"].each do |prefix|
+					try_port = "/dev/#{prefix}#{n}"
+				
+					begin
+	
+						#[khw] print a message
+						puts "[rubygsm]: try port #{try_port}"
+	
+						# serialport args: port, baud, data bits, stop bits, parity
+						device = SerialPort.new(try_port, baud, 8, 1, SerialPort::NONE)
+						throw :found, [device, try_port]
+					
+					rescue ArgumentError, Errno::ENOENT
+						# do nothing, just continue to
+						# try the next port in order
 					end
 				end
-	
-				# tried all ports, nothing worked
-				raise AutoDetectError
 			end
+	
+			#[khw] on MAC, only search for cu.LJADeviceInterface*
+			file_found = Dir.glob("/dev/cu.LJADeviceInterface*")
+			if (file_found.empty?)
+				puts "[rubygsm]: /dev/cu.LJADeviceInterface* ports not found"
+			else
+				begin
+					try_port = file_found.first.to_s
+			
+					#[khw] print a message
+					puts "[rubygsm]: try port #{try_port}"
+			
+					# serialport args: port, baud, data bits, stop bits, parity
+					device = SerialPort.new(try_port, baud, 8, 1, SerialPort::NONE)
+					throw :found, [device, try_port]
+			
+				rescue
+				end
+			end
+         
+			# tried all ports, nothing worked
+			raise AutoDetectError
+		end
 		
+        #[khw] print a message
+        puts "[rubygsm]: found port #{@port}"
+
 		# if the port was a port number or file
 		# name, initialize a serialport object
 		elsif port.is_a?(String) or port.is_a?(Fixnum)
@@ -109,15 +144,56 @@ class Modem
 		# consistant, and the logs a bit more sane.
 		try_command "ATE0"      # echo off
 		try_command "AT+CMEE=1" # useful errors
-		try_command "AT+WIND=0" # no notifications
+
+		#[khw]: AT+WIND command isn't supported by my Zoom modem, comment out this line
+		#try_command "AT+WIND=0" # no notifications
 		
 		# PDU mode isn't supported right now (although
 		# it should be, because it's quite simple), so
 		# switching to text mode (mode 1) is MANDATORY
 		command "AT+CMGF=1"
+
+		#auto select operator
+		command "AT+COPS=0" #0=automatic selection, 2=numeric id, 310410, 2=current
+		
+		#select TE character set, which must be "IRA" for sending SMS to work
+		#IRA is International Reference Alphabet. 
+		#Setting CSCS to "IRA" is necessary for sending SMS to work. Occassionally, the setting is USC2 after
+		#powering up the modem
+		command "AT+CSCS=\"IRA\""
+		
+		#select the storage areas
+		# SMS reading&deleting: SM, which has space of 30 messages
+		# SMS sending&writing: ME, which has space of 0
+		# SMS status: SM, which has space of 30 messages
+		command "AT+CPMS=\"SM\",\"ME\",\"SM\""
 	end
 	
 	
+    #call seq
+    #  convert_string_from_ascii_to_char(ascii_string) => char string
+    # 
+    # This function assumes the ascii_string contains a series of ascii values
+    # in 2 hex digits. It converts the ascii_string into a character string, 
+    # and strips away the NULL, CR, and LF characters.
+    def self.convert_string_from_ascii_to_char(ascii_string)
+      char_string =""
+      ascii_string_length = ascii_string.length
+      offset = 0
+      sub_len = 2
+      while (offset < ascii_string_length)
+        ascii_val_as_char = ascii_string[offset, sub_len]
+        ascii_val_in_dec = ascii_val_as_char.to_i(16)
+        if (ascii_val_in_dec != CR && ascii_val_in_dec != LF && ascii_val_in_dec != Null)
+          #reconstruct the character string, but remove Null, Carriage return, and Line feed.
+          char_string += ascii_val_in_dec.chr
+        end
+        #puts ascii_val_as_char + " " + ascii_val_in_dec.to_s + " " + char_string
+        offset += sub_len
+      end
+      #puts char_string.length.to_s + " chars"
+      return char_string
+    end
 	
 	
 	private
@@ -921,7 +997,13 @@ class Modem
 				# enable new message notification mode every ten intevals, in case the
 				# modem "forgets" (power cycle, etc)
 				if (@polled % 10) == 0
-					try_command("AT+CNMI=2,2,0,0,0")
+
+					#AT+CNMI=2,2,0,0,0 isn't supported by Zoom modem
+					#try_command("AT+CNMI=2,2,0,0,0")
+
+					# use AT+CMNI=2,1,0,0,0 instead, which configures the modem
+					# to notify new incoming SMS using unsolicited code +CMTI: "SM", <index>
+					try_command("AT+CNMI=2,1,0,0,0")
 				end
 				
 				# check for new messages lurking in the device's
@@ -948,6 +1030,11 @@ class Modem
 					# messages. todo: this is a ridiculous
 					# race condition, and i fail at ruby
 					@incoming.clear
+
+		            #delete all READ messages from the storage area
+	    			try_command("AT+CMGD=,1")
+				    #check the available space in the storage area
+				    try_command("AT+CPMS?")
 				end
 				
 				# re-poll every
@@ -963,6 +1050,10 @@ class Modem
 	end
 	
 
+    # call-seq:
+    #   fetch_stored_messages
+    #
+    # This method called by receive()
 	def fetch_stored_messages
 		
 		# fetch all/unread (see constant) messages
@@ -978,12 +1069,41 @@ class Modem
 		# stored messages waiting, this done nothing!
 		while n < lines.length
 			
+			# fix or workaround for bug #47
+			# (http://spires_sms_app.lighthouseapp.com/projects/80171/tickets/47-modem_controller-crashed-due-to-incoming-att-msg)
+			# 
+			# rubygsm crashes when the incoming unsolicited message has extra CMTI info at the begnning
+			# "", "+CMTI: \"SM\",0", "", "+CMGL: 0,\"REC UNREAD\",\"7535\",,\"12/10/26,15:12:52-28\"", "AT&T Free Msg:..."
+			# which receiver reads as
+			# [receiver]         Read: "\r\n"
+			# [receiver]         Read: "+CMTI: \"SM\",0\r\n"
+			# [receiver]         Read: "\r\n"
+			# [receiver]         Read: "+CMGL: 0,\"REC UNREAD\",\"7535\",,\"12/10/26,15:12:52-28\"\r\n"
+			# [receiver]         Read: "AT&T Free Msg: your unlimited messaging pkg was not renewed on 10/26/12 due to lack of balance. Refill your GoPhone acct today and re-enroll in auto-renew.\r\n"
+			#
+			#
+			# as oppose to
+			# "", "+CMGL: 0,\"REC UNREAD\",\"28887777\",,\"12/09/26,17:00:53-28\"", "AT&T Free Msg:..." 
+			#
+			# [receiver]         Read: "\r\n"
+			# [receiver]         Read: "+CMGL: 0,\"REC UNREAD\",\"28887777\",,\"12/09/26,17:00:53-28\"\r\n"
+			# [receiver]         Read: "AT&T Free Msg: your unlimited messaging pkg was not renewed on 10/26/12 due to lack of balance. Refill your GoPhone acct today and re-enroll in auto-renew.\r\n"
+			#
+			# Two extra lines are added :"", "+CMTI: \"SM\",0",
+			# The workaround is if the string "CMTI" is detected in the current line (n), skip 2 lines to get to the CMGL line (n+2).
+			if m = lines[n].match(/^\+CMTI:/)
+			  if (n + 2) < lines.length
+				n = n + 2          
+			  end
+			end
+	
 			# attempt to parse the CMGL line (we're skipping
 			# two lines at a time in this loop, so we will
 			# always land at a CMGL line here) - they look like:
 			#   +CMGL: 0,"REC READ","+13364130840",,"09/03/04,21:59:31-20"
 			unless m = lines[n].match(/^\+CMGL: (\d+),"(.+?)","(.+?)",*?,"(.+?)".*?$/)
-				err = "Couldn't parse CMGL data: #{lines[n]}"
+				puts "[rubygsm]: couldn't parse CMGL data: #{lines[n]}"
+				err = "couldn't parse CMGL data: #{lines[n]}"
 				raise RuntimeError.new(err)
 			end
 			
@@ -1001,12 +1121,17 @@ class Modem
 			
 			# log the incoming message
 			log "Fetched stored message from #{from}: #{msg_text.inspect}"
+			log "message index: |#{index}|"
+			log "message status: |#{status}|"
+			log "message from: |#{from}|"
+			log "message timestamp: |#{timestamp}|"
+			log "message text: |#{msg_text.inspect}|"
 			
 			# store the incoming data to be picked up
 			# from the attr_accessor as a tuple (this
 			# is kind of ghetto, and WILL change later)
-			sent = parse_incoming_timestamp(timestamp)
-			msg = Gsm::Incoming.new(self, from, sent, msg_text)
+			time_sent = timestamp
+			msg = Gsm::Incoming.new(self, from, time_sent, msg_text)
 			@incoming.push(msg)
 		
 			# skip over the messge line(s),
