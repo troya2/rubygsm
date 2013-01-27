@@ -968,7 +968,7 @@ module Gsm
 	#
 	#   class Receiver
 	#     def incoming(msg)
-	#       puts "From #{msg.from} at #{msg.sent}:", msg.text
+	#       puts "From #{msg.sender} at #{msg.time_sent}:", msg.text
 	#     end
 	#   end
 	#   

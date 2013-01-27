@@ -10,8 +10,8 @@ to provide a nifty interface to send and receive SMS messages via a GSM modem.
           @gsm = gsm
       end
       
-      def incoming(from, datetime, message)
-          @gsm.send(from, message.reverse)
+      def incoming(message)
+          @gsm.send(message.sender, message.text.reverse)
       end
   end
 
