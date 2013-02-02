@@ -15,24 +15,23 @@ class Modem
 		:warn    => 2,
 		:error   => 1 }
 	
-	def log_init
+	def log_init filename = nil
 		if @port
 			
-			# build a log filename based on the device's
-			# path (ttyS0, ttyUSB1, etc) and date/time
-			fn_port = File.basename(@port)
-			fn_time = Time.now.strftime("%Y-%m-%d.%H-%M-%S")
-			filename = "rubygsm.#{fn_port}.#{fn_time}.log"
+		# build a log filename based on the device's
+		# path (ttyS0, ttyUSB1, etc) and date/time
+		fn_port = File.basename(@port)
+		filename = filename || "rubygsm.#{fn_port}.log"
 		
 		# if the port path is unknown, log to
 		# the same file each time. TODO: we
 		# really need a proper logging solution
 		else
-			filename = "rubygsm.log"
+			filename = filename || "rubygsm.log"
 		end
 		
 		# (re-) open the log file
-		@log = File.new filename, "w"
+		@log = File.new filename, "w+"
 		
 		# dump some useful information
 		# at the top, for debugging
