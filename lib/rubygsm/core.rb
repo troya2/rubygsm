@@ -41,6 +41,7 @@ module Gsm
     # :baud :: defaults to 9600
     # :cmd_delay :: defaults to 0.1
     # :log_file :: defaults to nil, which means it uses the port and launch time and makes a log file in the cwd
+    # :log_file_verbosity_level :: defaults to :debug - see LOG_LEVELS in log.rb for other possibilities
     # :skip_default_at_commands :: defaults to false - if true, no initialization AT commands are sent to the modem
     # :at_preinit_commands :: defaults to [] - array of AT commands to send to the modem before our default init commands
     # :at_postinit_commands :: defaults to [] - array of AT commands to send to the modem after our default init commands
@@ -63,6 +64,7 @@ module Gsm
       baud = options[:baud] || 9600
       cmd_delay = options[:cmd_delay] || 0.1
       log_file = options[:log_file]
+      log_file_verbosity_level = options[:log_file_verbosity_level] || :debug
       skip_default_at_commands = options[:skip_default_at_commands] || false
       at_preinit_commands = options[:at_preinit_commands] || []
       at_postinit_commands = options[:at_postinit_commands] || []
@@ -116,7 +118,7 @@ module Gsm
       @multipart = {}
       
       # start logging to file
-      log_init log_file
+      log_init log_file, log_file_verbosity_level
       
       # to store incoming messages
       # until they're dealt with by
@@ -163,6 +165,7 @@ module Gsm
       possibilities = []
       possibilities += Dir.glob("/dev/ttyUSB*") # Linux
       possibilities += Dir.glob("/dev/cu.LJADeviceInterface*") # Mac
+      possibilities += Dir.glob("/dev/tty.HUAWEIMobile-Modem") # HUAWEI on Mac
       possibilities += Dir.glob("/dev/tty.ZTEUSBModem_") # ZTE on Mac
 
       possibilities.each do |try_port|

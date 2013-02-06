@@ -15,7 +15,9 @@ class Modem
 		:warn    => 2,
 		:error   => 1 }
 	
-	def log_init filename = nil
+	def log_init filename = nil, log_file_verbosity = :debug
+		@log_file_verbosity = log_file_verbosity
+		
 		if @port
 			
 		# build a log filename based on the device's
@@ -57,7 +59,7 @@ class Modem
 		thr = (thr.nil?) ? "" : "[#{thr}] "
 		
 		# dump (almost) everything to file
-		if LOG_LEVELS[level] >= LOG_LEVELS[:debug]\
+		if LOG_LEVELS[level] >= LOG_LEVELS[@log_file_verbosity]\
 		or level == :file
 		
 			@log.puts thr + ind + msg
