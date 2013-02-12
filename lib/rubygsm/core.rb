@@ -36,7 +36,7 @@ module Gsm
     # or /dev/ttyUSB0), and start logging to *rubygsm.log* in the chdir.
     #
     # Possible options are:
-    # :port :: defaults to :auto, but another sane value would be something like "/dev/ttyUSB0"
+    # :port :: defaults to :auto, but another sane value would be something like "/dev/ttyUSB0" or an array of ports to try, in order
     # :verbosity :: defaults to :warn, see LOG_LEVELS in log.rb for other possibilities
     # :baud :: defaults to 9600
     # :cmd_delay :: defaults to 0.1
@@ -74,8 +74,9 @@ module Gsm
       # modems mounted on. this is kind of shaky, and
       # only works well with a single modem. for now,
       # we'll try: ttyS0, ttyUSB0, ttyACM0, ttyS1...
-      if port == :auto
-        @device, @port = find_a_port baud
+      port = [] if port == :auto
+      if port.is_a?(Array)
+        @device, @port = find_a_port baud, port
         puts "[rubygsm]: found port #{@port}"
 
       # if the port was a port number or file
@@ -160,15 +161,17 @@ module Gsm
   
   private
   
-  def find_a_port baud
+  def find_a_port baud, ports_to_try = []
     catch(:found) do
-      possibilities = []
-      possibilities += Dir.glob("/dev/ttyUSB*") # Linux
-      possibilities += Dir.glob("/dev/cu.LJADeviceInterface*") # Mac
-      possibilities += Dir.glob("/dev/tty.HUAWEIMobile-Modem") # HUAWEI on Mac
-      possibilities += Dir.glob("/dev/tty.ZTEUSBModem_") # ZTE on Mac
+      if ports_to_try.empty?
+        ports_to_try = []
+        ports_to_try += Dir.glob("/dev/ttyUSB*").sort # Linux
+        ports_to_try += Dir.glob("/dev/cu.LJADeviceInterface*").sort # Mac
+        ports_to_try += Dir.glob("/dev/tty.HUAWEIMobile-Modem") # HUAWEI on Mac
+        ports_to_try += Dir.glob("/dev/tty.ZTEUSBModem_") # ZTE on Mac
+      end
 
-      possibilities.each do |try_port|
+      ports_to_try.each do |try_port|
         begin
           puts "[rubygsm]: try port #{try_port}"
 
