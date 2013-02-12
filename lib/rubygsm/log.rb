@@ -10,12 +10,12 @@ class Modem
 	# below it (ie. :debug includes all :warn messages)
 	LOG_LEVELS = {
 		:file    => 5,
-		:traffic => 4,
-		:debug   => 3,
+		:debug   => 4,
+		:traffic => 3,
 		:warn    => 2,
 		:error   => 1 }
 	
-	def log_init filename = nil, log_file_verbosity = :debug
+	def log_init filename = nil, log_file_verbosity = :traffic
 		@log_file_verbosity = log_file_verbosity
 		
 		if @port
@@ -59,7 +59,7 @@ class Modem
 		thr = (thr.nil?) ? "" : "[#{thr}] "
 		
 		# dump (almost) everything to file
-		if LOG_LEVELS[level] >= LOG_LEVELS[@log_file_verbosity]\
+		if LOG_LEVELS[level] <= LOG_LEVELS[@log_file_verbosity]\
 		or level == :file
 		
 			@log.puts thr + ind + msg
